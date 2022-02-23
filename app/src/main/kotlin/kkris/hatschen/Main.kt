@@ -3,14 +3,20 @@ package kkris.hatschen
 import com.fasterxml.jackson.databind.ObjectMapper
 import kkris.hatschen.distance.DistanceFunction
 import kkris.hatschen.distance.DistanceMetric
-import kkris.hatschen.gtsp.*
+import kkris.hatschen.distance.DistanceMetric.FOOTPATH
+import kkris.hatschen.distance.DistanceMetric.values
+import kkris.hatschen.gtsp.GtspInstanceFactory
+import kkris.hatschen.gtsp.GtspTour
 import kkris.hatschen.parser.GeoJsonParser
-import kkris.hatschen.sampling.*
+import kkris.hatschen.sampling.VertexSampleType
 import kkris.hatschen.util.Cmd
 import kkris.hatschen.util.haversine
 import kkris.hatschen.util.latitude
 import kkris.hatschen.util.longitude
-import kotlinx.cli.*
+import kotlinx.cli.ArgParser
+import kotlinx.cli.ArgType
+import kotlinx.cli.default
+import kotlinx.cli.required
 import mu.KotlinLogging
 import org.geojson.*
 import java.io.File
@@ -19,7 +25,7 @@ import java.nio.file.Paths
 
 fun main(args: Array<String>) {
     val parser = ArgParser("hatschen")
-    val areas by parser.option(ArgType.String, shortName = "a", description = "GeoJSON file containing the sets as polygons")
+    val areas by parser.option(ArgType.String, shortName = "a", description = "GeoJSON file containing the areas as polygons")
         .required()
     val sample by parser.option(
         ArgType.Choice(listOf("centroid", "center-bias", "grid", "boundary"), { it }), shortName = "s", description = "Vertex sampling method within areas")
@@ -44,7 +50,7 @@ fun main(args: Array<String>) {
     run(
         areas,
         VertexSampleType.values().first { it.value == sample },
-        DistanceMetric.values().first { it.value == distance },
+        values().first { it.value == distance },
         osmFile,
         Paths.get(outputDir)
     )
@@ -77,8 +83,8 @@ private fun run(areasPath: String, vertexSampleType: VertexSampleType, distanceM
         )
 
     logger.info { "Calculating distances and formatting GTSP problem instance..." }
-    val distanceFunction = DistanceFunction.create(distanceMetric, osmFile)
-    val formattedInstance = instance.format(distanceFunction)
+    val weightingFunction = DistanceFunction.create(distanceMetric, osmFile)
+    val formattedInstance = instance.format(weightingFunction)
 
     val gtspPath = outputDirectory.resolve("instance.gtsp")
     logger.debug { "Writing GTSP instance to '$gtspPath'" }
@@ -100,13 +106,14 @@ private fun run(areasPath: String, vertexSampleType: VertexSampleType, distanceM
 
     logger.info { "Generating path from tour..." }
     val collection = FeatureCollection()
+    val pathFunction = if (osmFile != null) DistanceFunction.create(FOOTPATH, osmFile) else weightingFunction
 
     val closedTour = tour.tour + listOf(tour.tour.first())
     val path = closedTour.zipWithNext { a, b ->
         val n1 = instance.nodes.first { it.id == a }
         val n2 = instance.nodes.first { it.id == b }
 
-        distanceFunction.getPath(n1.coordinate, n2.coordinate).map {
+        pathFunction.getPath(n1.coordinate, n2.coordinate).map {
             LngLatAlt(it.longitude, it.latitude)
         }
     }

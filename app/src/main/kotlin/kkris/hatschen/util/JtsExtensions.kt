@@ -3,7 +3,7 @@ package kkris.hatschen.util
 import org.locationtech.jts.geom.Coordinate
 
 // in meters: how far coordinates should be pulled from the boundary towards the center
-private const val BOUNDARY_SLACK = 50.0
+private const val BOUNDARY_SLACK = 10.0
 
 // these extension functions are just for me, I always confuse the x with latitude
 val Coordinate.latitude: Double

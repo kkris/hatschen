@@ -12,7 +12,7 @@ import org.locationtech.jts.geom.Polygon
 
 // in meters: min distance between two vertices on the same boundary
 // smaller values don't make much sense since city blocks are usually at least 50-60m wide
-private const val MIN_DISTANCE = 200.0//70.0
+private const val MIN_DISTANCE = 50.0
 
 
 class BoundarySampler: VertexSampler {
